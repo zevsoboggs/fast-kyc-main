@@ -75,13 +75,13 @@ export async function POST(request: NextRequest) {
         status: 'PROCESSING',
         ipAddress,
         userAgent,
-        deviceInfo: deviceInfo || undefined,
+        deviceInfo: deviceInfo ? JSON.parse(JSON.stringify(deviceInfo)) : undefined,
         metadata: { email: validated.email },
         sessionEvents: [
           {
             type: 'VERIFICATION_STARTED',
             timestamp: new Date().toISOString(),
-            device: deviceInfo,
+            device: deviceInfo ? JSON.parse(JSON.stringify(deviceInfo)) : null,
           }
         ],
       },
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       ipGeoPromise.then(async (ipGeo) => {
         await prisma.verification.update({
           where: { id: verification.id },
-          data: { ipGeoLocation: ipGeo },
+          data: { ipGeoLocation: JSON.parse(JSON.stringify(ipGeo)) },
         });
       }).catch(err => console.error('Failed to save IP geo:', err));
     }
@@ -290,7 +290,7 @@ async function processVerification(
         // Manual MRZ parsing for passport (more reliable than library)
         // Format: P<KAZTOKUSHEV<<DIAS<<<<<<<<<<<<<<<<<<<<<<<<<
         //         N120778099KAZ0009209M2811154000920551217<<44
-        const lines = mrzCode.split('\n').map(l => l.trim());
+        const lines = mrzCode.split('\n').map((l: string) => l.trim());
 
         if (lines.length >= 2) {
           // Line 1: Type + Country + Name
@@ -386,7 +386,7 @@ async function processVerification(
       documentNumber: finalDocumentNumber,
       firstName: finalFirstName,
       lastName: finalLastName,
-      dateOfBirth: finalDateOfBirth,
+      dateOfBirth: finalDateOfBirth || undefined,
       faceMatchScore: faceComparison.similarity,
       livenessScore,
     });
@@ -417,7 +417,7 @@ async function processVerification(
           ...ocrResult.mrzData,
           parsed: mrzParsed.fields,
           valid: mrzParsed.valid,
-        } : ocrResult.mrzData,
+        } : (ocrResult.mrzData || undefined),
         faceMatchScore: faceComparison.similarity,
         faceMatchConfidence: faceComparison.confidence,
         livenessScore,

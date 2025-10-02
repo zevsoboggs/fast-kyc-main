@@ -116,7 +116,7 @@ export default function TestKYCPage() {
 
         if (response.ok) {
           const data = await response.json();
-          setResult(prev => ({ ...prev, verification: data.verification }));
+          setResult((prev: any) => ({ ...prev, verification: data.verification }));
 
           if (data.verification.status !== 'PROCESSING' && data.verification.status !== 'PENDING') {
             return;

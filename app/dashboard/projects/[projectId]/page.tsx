@@ -628,13 +628,13 @@ export default function ProjectDetailPage() {
                     selectedVerification.status === 'MANUAL_REVIEW' ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
                     'bg-gray-100 text-gray-700 border border-gray-200'
                   }`}>
-                    {{
+                    {({
                       'APPROVED': 'Одобрено',
                       'REJECTED': 'Отклонено',
                       'MANUAL_REVIEW': 'Требует проверки',
                       'PROCESSING': 'Обработка',
                       'PENDING': 'Ожидание'
-                    }[selectedVerification.status] || selectedVerification.status}
+                    } as Record<string, string>)[selectedVerification.status] || selectedVerification.status}
                   </span>
                   {selectedVerification.rejectionReason && (
                     <div className="mt-3 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -927,11 +927,11 @@ export default function ProjectDetailPage() {
                         {selectedVerification.fraudScore?.toFixed(1) || 'N/A'}
                       </div>
                       <div className="text-sm text-gray-500">
-                        Уровень риска: {{
+                        Уровень риска: {({
                           'LOW': 'Низкий',
                           'MEDIUM': 'Средний',
                           'HIGH': 'Высокий'
-                        }[selectedVerification.fraudRiskLevel] || selectedVerification.fraudRiskLevel || 'N/A'}
+                        } as Record<string, string>)[selectedVerification.fraudRiskLevel || ''] || selectedVerification.fraudRiskLevel || 'N/A'}
                       </div>
                     </div>
                   </div>

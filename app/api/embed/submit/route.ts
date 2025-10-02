@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
-import { uploadToS3 } from '@/lib/aws/s3';
-import { startVerificationWorkflow } from '@/lib/aws/step-functions';
+import { uploadFile } from '@/lib/aws/s3';
+import { startVerificationWorkflow } from '@/lib/aws/stepFunctions';
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,26 +46,41 @@ export async function POST(request: NextRequest) {
     const documentFrontBuffer = Buffer.from(await documentFront.arrayBuffer());
     const selfieBuffer = Buffer.from(await selfie.arrayBuffer());
 
-    const documentFrontKey = await uploadToS3(
+    const documentFrontResult = await uploadFile(
       documentFrontBuffer,
-      `verifications/${verificationId}/document-front-${Date.now()}.${documentFront.type.split('/')[1]}`,
-      documentFront.type
+      `document-front-${Date.now()}.${documentFront.type.split('/')[1]}`,
+      {
+        folder: `verifications/${verificationId}`,
+        contentType: documentFront.type,
+        encrypt: true,
+      }
     );
+    const documentFrontKey = documentFrontResult.key;
 
-    const selfieKey = await uploadToS3(
+    const selfieResult = await uploadFile(
       selfieBuffer,
-      `verifications/${verificationId}/selfie-${Date.now()}.${selfie.type.split('/')[1]}`,
-      selfie.type
+      `selfie-${Date.now()}.${selfie.type.split('/')[1]}`,
+      {
+        folder: `verifications/${verificationId}`,
+        contentType: selfie.type,
+        encrypt: true,
+      }
     );
+    const selfieKey = selfieResult.key;
 
     let documentBackKey: string | null = null;
     if (documentBack) {
       const documentBackBuffer = Buffer.from(await documentBack.arrayBuffer());
-      documentBackKey = await uploadToS3(
+      const documentBackResult = await uploadFile(
         documentBackBuffer,
-        `verifications/${verificationId}/document-back-${Date.now()}.${documentBack.type.split('/')[1]}`,
-        documentBack.type
+        `document-back-${Date.now()}.${documentBack.type.split('/')[1]}`,
+        {
+          folder: `verifications/${verificationId}`,
+          contentType: documentBack.type,
+          encrypt: true,
+        }
       );
+      documentBackKey = documentBackResult.key;
     }
 
     // Update verification
@@ -83,7 +98,16 @@ export async function POST(request: NextRequest) {
 
     // Start Step Functions workflow
     try {
-      const executionArn = await startVerificationWorkflow(verificationId);
+      const workflowInput = {
+        verificationId: verificationId,
+        projectId: verification.projectId,
+        documentFrontKey: documentFrontKey,
+        documentBackKey: documentBackKey || undefined,
+        selfieKey: selfieKey,
+        s3Bucket: process.env.AWS_S3_BUCKET || '',
+      };
+
+      const { executionArn } = await startVerificationWorkflow(workflowInput);
       await prisma.verification.update({
         where: { id: verificationId },
         data: {

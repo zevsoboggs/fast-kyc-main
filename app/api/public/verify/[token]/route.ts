@@ -87,12 +87,12 @@ export async function POST(
         status: 'PROCESSING',
         ipAddress,
         userAgent,
-        deviceInfo: deviceInfo || undefined,
+        deviceInfo: deviceInfo ? JSON.parse(JSON.stringify(deviceInfo)) : undefined,
         sessionEvents: [
           {
             type: 'SESSION_CREATED',
             timestamp: new Date().toISOString(),
-            device: deviceInfo,
+            device: deviceInfo ? JSON.parse(JSON.stringify(deviceInfo)) : null,
           }
         ],
       },
@@ -103,7 +103,7 @@ export async function POST(
       ipGeoPromise.then(async (ipGeo) => {
         await prisma.verification.update({
           where: { id: verification.id },
-          data: { ipGeoLocation: ipGeo },
+          data: { ipGeoLocation: JSON.parse(JSON.stringify(ipGeo)) },
         });
       }).catch(err => console.error('Failed to save IP geo:', err));
     }
@@ -221,7 +221,7 @@ async function processVerification(
     if (ocrResult.personalInfo['MRZ_CODE']?.value && isValidValue(ocrResult.personalInfo['MRZ_CODE']?.value)) {
       try {
         const mrzCode = ocrResult.personalInfo['MRZ_CODE'].value;
-        const lines = mrzCode.split('\n').map(l => l.trim());
+        const lines = mrzCode.split('\n').map((l: string) => l.trim());
 
         if (lines.length >= 2) {
           const line1 = lines[0];
@@ -299,7 +299,7 @@ async function processVerification(
       documentNumber: finalDocumentNumber,
       firstName: finalFirstName,
       lastName: finalLastName,
-      dateOfBirth: finalDateOfBirth,
+      dateOfBirth: finalDateOfBirth || undefined,
       faceMatchScore: faceComparison.similarity,
       livenessScore,
     });
@@ -330,7 +330,7 @@ async function processVerification(
           ...ocrResult.mrzData,
           parsed: mrzParsed.fields,
           valid: mrzParsed.valid,
-        } : ocrResult.mrzData,
+        } : (ocrResult.mrzData || undefined),
         faceMatchScore: faceComparison.similarity,
         faceMatchConfidence: faceComparison.confidence,
         livenessScore,
