@@ -1,0 +1,170 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  CLIENT
+}
+
+enum VerificationStatus {
+  PENDING
+  PROCESSING
+  APPROVED
+  REJECTED
+  MANUAL_REVIEW
+}
+
+enum DocumentType {
+  PASSPORT
+  ID_CARD
+  DRIVERS_LICENSE
+}
+
+enum AuditAction {
+  USER_LOGIN
+  USER_LOGOUT
+  PROJECT_CREATED
+  PROJECT_UPDATED
+  PROJECT_DELETED
+  VERIFICATION_STARTED
+  VERIFICATION_COMPLETED
+  API_KEY_CREATED
+  API_KEY_REVOKED
+  WEBHOOK_CONFIGURED
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String
+  firstName     String?
+  lastName      String?
+  company       String?
+  role          UserRole  @default(CLIENT)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  projects      Project[]
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+model Project {
+  id              String    @id @default(uuid())
+  name            String
+  description     String?
+  userId          String
+  apiKey          String    @unique
+  apiKeyHash      String
+  webhookUrl      String?
+  webhookSecret   String?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verifications   Verification[]
+
+  @@index([userId])
+  @@map("projects")
+}
+
+model Verification {
+  id                    String              @id @default(uuid())
+  projectId             String
+  externalId            String?
+  status                VerificationStatus  @default(PENDING)
+
+  // Personal Information
+  firstName             String?
+  lastName              String?
+  dateOfBirth           DateTime?
+  nationality           String?
+  documentNumber        String?
+  documentType          DocumentType?
+
+  // Document Files
+  documentFrontS3Key    String?
+  documentBackS3Key     String?
+  selfieS3Key           String?
+
+  // OCR Results (Amazon Textract)
+  ocrData               Json?
+  mrzData               Json?
+
+  // Face Comparison (Rekognition)
+  faceMatchScore        Float?
+  faceMatchConfidence   Float?
+
+  // Liveness Detection
+  livenessScore         Float?
+  livenessConfidence    Float?
+  livenessSessionId     String?
+
+  // Fraud Detection (Fraud Detector)
+  fraudScore            Float?
+  fraudRiskLevel        String?
+  fraudReasons          Json?
+
+  // Step Functions
+  stepFunctionArn       String?
+  stepFunctionStatus    String?
+
+  // Review & Decision
+  reviewNotes           String?
+  reviewedBy            String?
+  reviewedAt            DateTime?
+  rejectionReason       String?
+
+  // Metadata
+  ipAddress             String?
+  userAgent             String?
+  metadata              Json?
+
+  // Device & Network Information
+  deviceInfo            Json?     // device type, brand, model, OS, browser
+  ipGeoLocation         Json?     // country, city, lat/lng, ISP, VPN detection
+
+  // Session Events
+  sessionEvents         Json?     // array of user events during verification
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  completedAt           DateTime?
+
+  project               Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  auditLogs             AuditLog[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("verifications")
+}
+
+model AuditLog {
+  id              String       @id @default(uuid())
+  userId          String?
+  verificationId  String?
+  action          AuditAction
+  details         Json?
+  ipAddress       String?
+  userAgent       String?
+  createdAt       DateTime     @default(now())
+
+  user            User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  verification    Verification? @relation(fields: [verificationId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([verificationId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
